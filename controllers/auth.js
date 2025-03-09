@@ -46,7 +46,7 @@ const addMobil = async (req, res) => {
                 .populate('cards')
                 .populate('mobils');
         }
-        const userResponse = generateUserResponse(the_user);
+        const userResponse = await generateUserResponse(the_user);
 
         res.status(200).json({ user: userResponse, message: 'User found' });
     } catch (error) {
@@ -80,13 +80,87 @@ const addCard = async (req, res) => {
                 .populate('cards')
                 .populate('mobils');
         }
-        const userResponse = generateUserResponse(the_user);
+        const userResponse = await generateUserResponse(the_user);
 
         res.status(200).json({ user: userResponse, message: 'User found' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
+const removeMobil = async (req, res) => {
+    try {
+        const { uid, mobil } = req.body;
+
+        var the_user = await getTheCurrentUserOrFailed(req, res);
+        if (!the_user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (mobil){
+            const mobil_ = await Mobil.findOne({ _id: mobil.id });
+            if (mobil_){
+                the_user.mobils = the_user.mobils.filter((k, v) => k != mobil.id);
+                if (the_user.selectedPayementMethod && the_user.selectedPayementMethod.mobil == mobil.id){
+                    var theSelectedPayementMethod = await SelectedPayement.findOne({ _id: the_user.selectedPayementMethod });
+                    await SelectedPayement.deleteOne(theSelectedPayementMethod);
+                    the_user.selectedPayementMethod = null;
+                }
+                await the_user.save();
+                await Mobil.deleteOne(mobil_);
+            }
+
+            the_user = await User.findOne({_id: the_user._id}) 
+                .populate('country')
+                .populate('selectedPayementMethod')
+                .populate('mobils')
+                .populate('cards');
+        }
+        const userResponse = await generateUserResponse(the_user);
+
+        res.status(200).json({ user: userResponse, message: 'User found' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const removeCard = async (req, res) => {
+    try {
+        const { uid, card } = req.body;
+
+        var the_user = await getTheCurrentUserOrFailed(req, res);
+        if (!the_user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (card){
+            const card_ = await Card.findOne({ _id: card.id });
+            if (card_){
+                the_user.cards = the_user.cards.filter((k, v) => k != card.id);
+                if (the_user.selectedPayementMethod && the_user.selectedPayementMethod.card == card.id){
+                    var theSelectedPayementMethod = await SelectedPayement.findOne({ _id: the_user.selectedPayementMethod });
+                    await SelectedPayement.deleteOne(theSelectedPayementMethod);
+                    the_user.selectedPayementMethod = null;
+                }
+
+                await the_user.save();
+                await Card.deleteOne(card_);
+            }
+
+            the_user = await User.findOne({_id: the_user._id}) 
+                .populate('country')
+                .populate('selectedPayementMethod')
+                .populate('mobils')
+                .populate('cards');
+        }
+        const userResponse = await generateUserResponse(the_user);
+
+        res.status(200).json({ user: userResponse, message: 'User found' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 const refreshUser = async (req, res) => {
     const { authkey, uid } = req.body;
     
@@ -211,7 +285,7 @@ const selectPaymentMethod = async (req, res) => {
                 .populate('cards')
                 .populate('mobils');
         }
-        const userResponse = generateUserResponse(the_user);
+        const userResponse = await generateUserResponse(the_user);
 
         res.status(200).json({ user: userResponse, message: 'User found' });
     } catch (error) {
@@ -313,7 +387,7 @@ async function generateUserResponse(user){
         typeUser: user.role,
         role: user.role,
         coins: user.coins ?? 0,
-        // selectedPayementMethod: user.selectedPayementMethod,
+        selectedPayementMethod: user.selectedPayementMethod,
         // {
         //     mobil: user.selectedPayementMethod.mobil ? {
         //         id: user.selectedPayementMethod.mobil._id,
@@ -335,4 +409,4 @@ async function generateUserResponse(user){
 }
 
 //exports
-module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod };
+module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard };
