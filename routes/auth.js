@@ -1,6 +1,6 @@
 const express = require('express');
 const verifyFirebaseToken = require('../middlewares/auth');
-const { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard } = require('../controllers/auth');
+const { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins } = require('../controllers/auth');
 
 const router = express.Router();
 
@@ -13,6 +13,8 @@ router.post('/select-payement-method', verifyFirebaseToken, selectPaymentMethod)
 
 router.post('/remove-mobil', verifyFirebaseToken, removeMobil);
 router.post('/remove-card', verifyFirebaseToken, removeCard);
+
+router.post('/add-coins', verifyFirebaseToken, addCoins);
 
 module.exports = router;
 

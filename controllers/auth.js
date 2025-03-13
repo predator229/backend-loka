@@ -6,6 +6,8 @@ const Country = require('../models/Country');
 const Mobil = require('../models/Mobil');
 const Card = require('../models/Card');
 const SelectedPayement = require('../models/SelectedPayement');
+// const stripe = require('stripe')('your-stripe-secret-key');
+// const axios = require('axios');
 
 const authentificateUser = async (req, res) => {
     try {
@@ -293,6 +295,101 @@ const selectPaymentMethod = async (req, res) => {
     }
 };
 
+//add coins function
+const addCoins = async (req, res) => {
+    try {
+        const { uid, coins } = req.body;
+
+        var the_user = await getTheCurrentUserOrFailed(req, res);
+        if (!the_user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (!coins || coins <= 0){
+            return res.status(404).json({ message: 'Invalid coins' });
+        }
+
+        if (!the_user.selectedPayementMethod || (!the_user.selectedPayementMethod.mobil && !the_user.selectedPayementMethod.card)){ 
+        // if (true){
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'No payment method selected', user: userResponse, error: 1 });
+        }
+        var selectedPayement_ = await the_user.selectedPayementMethod.mobil ?  Mobil.findOne({ _id: the_user.selectedPayementMethod.mobil._id }) : Card.findOne({ _id: the_user.selectedPayementMethod.card._id });
+        if (!selectedPayement_){
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'No payment method selected. Contact the support', user: userResponse, error: 1 });
+        }
+
+        // Example payment process for card using Stripe
+
+        // if (selectedPayement_.card) {
+        //     try {
+        //         const paymentIntent = await stripe.paymentIntents.create({
+        //             amount: coins * 100, // amount in cents
+        //             currency: 'xof',
+        //             payment_method: selectedPayement_.card,
+        //             confirm: true,
+        //         });
+        
+        //         if (paymentIntent.status !== 'succeeded') {
+        //             return res.status(200).json({ message: 'Payment failed', user: userResponse, error: 1 });
+        //         }
+        //     } catch (error) {
+        //         return res.status(200).json({ message: 'Payment failed', user: userResponse, error: 1 });
+        //     }
+        // } else if (selectedPayement_.mobile_money) {
+        //     try {
+        //         const paymentProvider = "CinetPay"; // Remplace par "PayDunya" ou "Flutterwave" selon l'API utilisée
+        
+        //         const paymentData = {
+        //             apikey: process.env.CINETPAY_API_KEY, // Remplace par ta clé API
+        //             site_id: process.env.CINETPAY_SITE_ID, // ID de ton site sur CinetPay
+        //             transaction_id: `TXN_${Date.now()}`,
+        //             amount: coins * 100, // Montant en francs CFA
+        //             currency: "XOF",
+        //             description: "Achat de crédits",
+        //             customer_name: userResponse.name,
+        //             customer_email: userResponse.email,
+        //             customer_phone: selectedPayement_.mobile_money.phone,
+        //             payment_method: selectedPayement_.mobile_money.operator, // "mtn" ou "moov"
+        //             notify_url: "https://ton-site.com/webhook",
+        //             return_url: "https://ton-site.com/success",
+        //             cancel_url: "https://ton-site.com/cancel"
+        //         };
+        
+        //         const response = await axios.post("https://api.cinetpay.com/v1/payment", paymentData, {
+        //             headers: { "Content-Type": "application/json" }
+        //         });
+        
+        //         if (response.data.code !== "00") {
+        //             return res.status(200).json({ message: "Mobile Money payment failed", user: userResponse, error: 1 });
+        //         }
+        
+        //         return res.status(200).json({ message: "Payment initiated", transaction_id: paymentData.transaction_id, user: userResponse, error: 0 });
+        
+        //     } catch (error) {
+        //         return res.status(200).json({ message: "Mobile Money payment failed", user: userResponse, error: 1 });
+        //     }
+        // } else {
+        //     return res.status(400).json({ message: "Invalid payment method", error: 1 });
+        // }
+        
+        the_user.coins =  parseFloat(the_user.coins ? the_user.coins : 0) + parseFloat(coins);
+        await the_user.save();
+
+        the_user = await User.findOne({_id: the_user._id}) 
+            .populate('country')
+            .populate('selectedPayementMethod')
+            .populate('cards')
+            .populate('mobils');
+                
+        const userResponse = await generateUserResponse(the_user);
+
+        res.status(200).json({ user: userResponse, message: 'Vos coins ont été ajoutés', error: 0 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 //commons fucntions
 async function getTheCurrentUserOrFailed(req, res){
     const { uid, addMobil } = req.body;
@@ -388,25 +485,10 @@ async function generateUserResponse(user){
         role: user.role,
         coins: user.coins ?? 0,
         selectedPayementMethod: user.selectedPayementMethod,
-        // {
-        //     mobil: user.selectedPayementMethod.mobil ? {
-        //         id: user.selectedPayementMethod.mobil._id,
-        //         digits: user.selectedPayementMethod.mobil.digits,
-        //         indicatif: user.selectedPayementMethod.mobil.indicatif,
-        //         title: user.selectedPayementMethod.mobil.title
-        //     } : null,
-        //     card: user.selectedPayementMethod.card ? {
-        //         id: user.selectedPayementMethod.card._id,
-        //         digits: user.selectedPayementMethod.card.digits,
-        //         expiration: user.selectedPayementMethod.card.expiration,
-        //         title: user.selectedPayementMethod.card.title,
-        //         cvv: user.selectedPayementMethod.card.cvv
-        //     } : null,
-        // } : null,
         cards: user.cards,
         mobils: user.mobils,
     };
 }
 
 //exports
-module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard };
+module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins };
