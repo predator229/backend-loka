@@ -22,9 +22,12 @@ app.use(cors());
 app.use(helmet());
 
 // Connexion à MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('MongoDB connected bien chien la'))
-    .catch(err => console.log(err));
+// mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+//     .then(() => console.log('MongoDB connected bien chien la'))
+//     .catch(err => console.log(err));
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('✅ MongoDB connecté avec succès'))
+    .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
 
 // Routes protégées par Firebase Auth
 app.use('/api/users', usersRoutes);
