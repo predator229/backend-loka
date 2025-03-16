@@ -11,7 +11,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-const { exec } = require('child_process');
+const Country = require('./models/Country');
+const TypeUser = require('./models/TypeUser');
+
+const fs = require('fs').promises;
+
 const usersRoutes = require('./routes/auth');
 
 const app = express();
@@ -21,45 +25,55 @@ app.use(express.json());
 app.use(cors());
 app.use(helmet());
 
-async function resetDatabase() {
+
+// Connexion à MongoDB
+// mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+//     .then(() => console.log('MongoDB connected bien chien la'))
+//     .catch(err => console.log(err));
+async function importData() {
     try {
-        console.log('🗑️ Suppression de toutes les collections...');
-        const collections = await mongoose.connection.db.collections();
+    // mongoose.connect(process.env.MONGO_URI)
+    //     .then(() => console.log('✅ MongoDB connecté avec succès'))
+    //     .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
+
+    //     console.log('🗑️ Suppression de toutes les collections...');
+    //     const collections = await mongoose.connection.db.collections();
+            
+    //     for (let collection of collections) {
+    //         await collection.deleteMany({});
+    //     }
+
+        const data = await fs.readFile('countries.json', 'utf8');
+        const countries = JSON.parse(data);
+
+        await Country.insertMany(countries);
+        console.log('🌍 Countries data has been added to the database!');
+
+        const typesUser = [
+            { title: 'Propriétaire', description: 'Propriétaire de compte' },
+            { title: 'Compte client', description: 'Propriétaire de d\'appartement' },
+            { title: 'Administrateur', description: 'Administrateur de Loka' }
+        ];
+
+        await TypeUser.insertMany(typesUser);
+        console.log('👥 User types have been added to the database!');
         
-        for (let collection of collections) {
-            await collection.deleteMany({});
-        }
-
-        console.log('✅ Base de données vidée avec succès.');
-
-        console.log('📥 Importation des pays...');
-        exec('node importCountries.js', (error, stdout, stderr) => {
-            if (error) {
-                console.error(`❌ Erreur lors de l'importation des pays : ${error.message}`);
-                return;
-            }
-            if (stderr) {
-                console.error(`⚠️ STDERR : ${stderr}`);
-                return;
-            }
-            console.log(`📦 Importation terminée : ${stdout}`);
-
-            app.listen(PORT, () => {
-                console.log(`🌍 Server running on port ${PORT}`);
-                console.log(mongoose.modelNames());
-            });
-        });
-
     } catch (error) {
-        console.error('❌ Erreur lors du reset de la base de données :', error);
+        console.error('❌ Error:', error);
+    } finally {
+        await mongoose.connection.close();
+        console.log('🔌 MongoDB connection closed.');
     }
 }
-
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log('✅ MongoDB connecté avec succès');
-        resetDatabase();
-    })
+    .then(() => console.log('✅ MongoDB connecté avec succès'))
     .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
 
+importData();
+// Routes protégées par Firebase Auth
 app.use('/api/users', usersRoutes);
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(mongoose.modelNames());
+});
