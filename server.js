@@ -25,22 +25,13 @@ app.use(express.json());
 app.use(cors());
 app.use(helmet());
 
-
-// Connexion à MongoDB
-// mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-//     .then(() => console.log('MongoDB connected bien chien la'))
-//     .catch(err => console.log(err));
 async function importData() {
     try {
-    mongoose.connect(process.env.MONGO_URI)
-        .then(() => console.log('✅ MongoDB connecté avec succès'))
-        .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
-
         console.log('🗑️ Suppression de toutes les collections...');
-        const collections = await mongoose.connection.db.collections();
-            
+        const collections = await mongoose.connection.db.listCollections().toArray();
+
         for (let collection of collections) {
-            await collection.deleteMany({});
+            await mongoose.connection.db.collection(collection.name).deleteMany({});
         }
 
         const data = await fs.readFile('countries.json', 'utf8');
@@ -57,23 +48,28 @@ async function importData() {
 
         await TypeUser.insertMany(typesUser);
         console.log('👥 User types have been added to the database!');
-        
+
     } catch (error) {
         console.error('❌ Error:', error);
-    } finally {
-        await mongoose.connection.close();
-        console.log('🔌 MongoDB connection closed.');
+        process.exit(1); // Stoppe le processus en cas d'erreur critique
     }
 }
+
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ MongoDB connecté avec succès'))
-    .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
+    .then(async () => {
+        console.log('✅ MongoDB connecté avec succès');
+        await importData();
+        console.log('✅ Importation des données terminée.');
+        // Routes protégées par Firebase Auth
+        app.use('/api/users', usersRoutes);
 
-importData();
-// Routes protégées par Firebase Auth
-app.use('/api/users', usersRoutes);
+        app.listen(PORT, () => {
+            console.log(`🚀 Server running on port ${PORT}`);
+            console.log('📌 Modèles Mongoose chargés:', mongoose.modelNames());
+        });
+    })
+    .catch(err => {
+        console.error('❌ Erreur de connexion MongoDB :', err);
+        process.exit(1);
+    });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(mongoose.modelNames());
-});
