@@ -32,16 +32,16 @@ app.use(helmet());
 //     .catch(err => console.log(err));
 async function importData() {
     try {
-    // mongoose.connect(process.env.MONGO_URI)
-    //     .then(() => console.log('✅ MongoDB connecté avec succès'))
-    //     .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
+    mongoose.connect(process.env.MONGO_URI)
+        .then(() => console.log('✅ MongoDB connecté avec succès'))
+        .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
 
-    //     console.log('🗑️ Suppression de toutes les collections...');
-    //     const collections = await mongoose.connection.db.collections();
+        console.log('🗑️ Suppression de toutes les collections...');
+        const collections = await mongoose.connection.db.collections();
             
-    //     for (let collection of collections) {
-    //         await collection.deleteMany({});
-    //     }
+        for (let collection of collections) {
+            await collection.deleteMany({});
+        }
 
         const data = await fs.readFile('countries.json', 'utf8');
         const countries = JSON.parse(data);
