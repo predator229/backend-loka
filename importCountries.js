@@ -8,11 +8,9 @@ const TypeUser = require('./models/TypeUser');
 async function importData() {
     try {
         // Connexion à MongoDB
-        await mongoose.connect(process.env.MONGO_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
-        console.log('✅ MongoDB Connected...');
+        mongoose.connect(process.env.MONGO_URI)
+            .then(() => console.log('✅ MongoDB connecté avec succès'))
+            .catch(err => console.error('❌ Erreur de connexion MongoDB :', err));
 
         // Lire et parser le fichier JSON des pays
         const data = await fs.readFile('countries.json', 'utf8');
