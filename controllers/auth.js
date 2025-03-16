@@ -18,7 +18,7 @@ const authentificateUser = async (req, res) => {
         }
         const userResponse = await generateUserResponse(the_user);
 
-        res.status(200).json({ user: userResponse, message: 'User found' });
+        res.status(200).json({ user: userResponse, message: the_user.new_user ? 'Bienvenu !' : 'Bon retour !' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -43,6 +43,7 @@ const addMobil = async (req, res) => {
             await the_user.save();
 
             the_user = await User.findOne({_id: the_user._id}) 
+                .populate('phone')
                 .populate('country')
                 .populate('selectedPayementMethod')
                 .populate('cards')
@@ -77,6 +78,7 @@ const addCard = async (req, res) => {
             await the_user.save();
 
             the_user = await User.findOne({_id: the_user._id}) 
+                .populate('phone')
                 .populate('country')
                 .populate('selectedPayementMethod')
                 .populate('cards')
@@ -116,6 +118,7 @@ const removeMobil = async (req, res) => {
                 .populate('country')
                 .populate('selectedPayementMethod')
                 .populate('mobils')
+                .populate('phone')
                 .populate('cards');
         }
         const userResponse = await generateUserResponse(the_user);
@@ -150,6 +153,7 @@ const removeCard = async (req, res) => {
             }
 
             the_user = await User.findOne({_id: the_user._id}) 
+                .populate('phone')
                 .populate('country')
                 .populate('selectedPayementMethod')
                 .populate('mobils')
@@ -175,6 +179,7 @@ const refreshUser = async (req, res) => {
 
         var the_user = uidObj ? await User.findOne({ uids: uidObj }) 
             .populate('country')
+            .populate('phone')
             .populate('selectedPayementMethod')
             .populate('cards')
             .populate('mobils') : false;
@@ -189,6 +194,7 @@ const refreshUser = async (req, res) => {
 
         the_user = result.user.phoneNumber ? await User.findOne({ phone: result.user.phoneNumber }) 
             .populate('country')
+            .populate('phone')
             .populate('selectedPayementMethod')
             .populate('cards')
             .populate('mobils') : false;
@@ -196,6 +202,7 @@ const refreshUser = async (req, res) => {
         if (!the_user && result.user.email) {
             the_user = await User.findOne({ email: result.user.email })
                                                 .populate('country')
+                                                .populate('phone')
                                                 .populate('selectedPayementMethod')
                                                 .populate('cards')
                                                 .populate('mobils')
@@ -209,8 +216,14 @@ const refreshUser = async (req, res) => {
         if (phoneNumber) {
             const country = await Country.findOne({ code: phoneNumber.country });
             if (country) {
+                let mobil = new Mobil();
+                mobil.indicatif = country.dial_code;
+                mobil.digits = phoneNumber.nationalNumber;
+                await mobil.save();
+
                 the_user.country = country._id;
-                the_user.phone = phoneNumber.nationalNumber;
+                the_user.phone = mobil._id;
+                await the_user.save();
             }
         }
 
@@ -230,7 +243,7 @@ const refreshUser = async (req, res) => {
             the_user.surname = name.filter((k, v) => v != 0).toString() ?? '';
         }
         the_user.role = 'user';
-        the_user.coins = 5000;
+        the_user.coins = 1000;
         // the_user.role = 'seller';
         // the_user.role = 'admin';
 
@@ -282,6 +295,7 @@ const selectPaymentMethod = async (req, res) => {
             }
 
             the_user = await User.findOne({_id: the_user._id}) 
+                .populate('phone')
                 .populate('country')
                 .populate('selectedPayementMethod')
                 .populate('cards')
@@ -305,7 +319,8 @@ const addCoins = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
         if (!coins || coins <= 0){
-            return res.status(404).json({ message: 'Invalid coins' });
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'Invalid coins', user: userResponse, error: 1 });
         }
 
         if (!the_user.selectedPayementMethod || (!the_user.selectedPayementMethod.mobil && !the_user.selectedPayementMethod.card)){ 
@@ -378,6 +393,7 @@ const addCoins = async (req, res) => {
 
         the_user = await User.findOne({_id: the_user._id}) 
             .populate('country')
+            .populate('phone')
             .populate('selectedPayementMethod')
             .populate('cards')
             .populate('mobils');
@@ -390,13 +406,93 @@ const addCoins = async (req, res) => {
     }
 };
 
+//edit profil
+const editProfil = async (req, res) => {
+    try {
+        const { uid, name, surname, email, thephone, country } = req.body;
+
+        var the_user = await getTheCurrentUserOrFailed(req, res);
+        var theUserPhone = null;
+        if (!the_user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (!thephone || !country || !name || !surname){
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'Certains parametres sont manquants !', user: userResponse, error: 1 });
+        }
+
+        var existUserWithEmailOrPhone = the_user.email === email ? null : await User.findOne({ email: email });
+        if (existUserWithEmailOrPhone == null) {
+            if (the_user.phone){
+                theUserPhone = await Mobil.findOne({id: the_user.phone._id});
+            }
+            if (theUserPhone && theUserPhone.digits !== thephone && theUserPhone.indicatif !== country){
+                const phones = await Mobil.find({ digits: thephone });
+                for (const phone of phones) {
+                    const userWithPhone = await User.findOne({ phone: phone._id });
+                    if (userWithPhone && userWithPhone._id !== the_user._id) {
+                        existUserWithEmailOrPhone = userWithPhone;
+                        break;
+                    }
+                }    
+            }
+        }
+
+        if (existUserWithEmailOrPhone != null  && existUserWithEmailOrPhone._id != the_user._id) {
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: `Un utilisateur avec ce numero de telephone ou email existe deja ! ${existUserWithEmailOrPhone._id}`, error: 1, user: userResponse });
+        }
+
+        const countryObj = await Country.findOne({ dial_code: country });
+        if (!countryObj) {
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'Le pays selectionne n\'existe pas !', user: userResponse, error: 1 });
+        }
+
+        // if (the_user.email){
+        //     const userResponse = await generateUserResponse(the_user);
+        //     return res.status(200).json({ message: 'Certains parametres sont manquants !', user: userResponse, error: 1 });
+        // }
+
+        let phone_ = the_user.phone != null ? await Mobil.findOne({_id: the_user.phone}) : new Mobil();
+        if (!theUserPhone || (theUserPhone && theUserPhone.digits !== thephone && theUserPhone.indicatif !== country)){
+            phone_.indicatif = countryObj.dial_code;
+            phone_.digits = thephone;
+            phone_.title = thephone;
+            await phone_.save();
+
+            the_user.country = countryObj._id;
+        }
+
+        the_user.name = name;
+        the_user.surname = surname;
+        the_user.phone = phone_._id;
+
+        await the_user.save();
+
+        the_user = await User.findOne({_id: the_user._id}) 
+            .populate('country')
+            .populate('phone')
+            .populate('selectedPayementMethod')
+            .populate('cards')
+            .populate('mobils');
+                
+        const userResponse = await generateUserResponse(the_user);
+
+        res.status(200).json({ user: userResponse, message: 'Modifications effectuees avec success !', error: 0 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 //commons fucntions
 async function getTheCurrentUserOrFailed(req, res){
-    const { uid, addMobil } = req.body;
+    const { uid } = req.body;
     var uidObj = await Uid.findOne({ uid: uid });
 
-    let the_user = uidObj ? await User.findOne({ uids: uidObj }) 
+    let the_user = uidObj != null  ? await User.findOne({ uids: uidObj._id }) 
         .populate('country')
+        .populate('phone')
         .populate('selectedPayementMethod')
         .populate('cards')
         .populate('mobils') : false;
@@ -406,59 +502,90 @@ async function getTheCurrentUserOrFailed(req, res){
         if (result.status !== 200) {
             return res.status(404).json({ message: 'User not found' });
         }
+        var country = null;
+        var thetelephone = null;
+        const phoneNumber = result.user.phoneNumber ? parsePhoneNumberFromString(result.user.phoneNumber) : false;
 
-        the_user = result.user.phoneNumber ? await User.findOne({ phone: result.user.phoneNumber }) 
-            .populate('country')
-            .populate('selectedPayementMethod')
-            .populate('cards')
-            .populate('mobils') : false;
-        
+        if (phoneNumber){
+            country = await Country.findOne({ code: phoneNumber.country });
+            if (country){
+                const phones = await Mobil.find({ digits: phoneNumber.nationalNumber, indicatif: country.dial_code  });
+                if (phones) {
+                    for (const phone of phones) {
+                        const userWithPhone = await User.findOne({ phone: phone._id }).populate('country')
+                        .populate('phone')
+                        .populate('selectedPayementMethod')
+                        .populate('cards')
+                        .populate('mobils');
+                        if (userWithPhone) {
+                            the_user = userWithPhone;
+                            thetelephone = phone;
+                            break;
+                        }
+                    }    
+                }
+            }
+
+            // if (country) {
+            //     the_user.country = country._id;
+            //     the_user.phone = phoneNumber.nationalNumber;
+            // }
+        }
+
         if (!the_user && result.user.email) {
             the_user = await User.findOne({ email: result.user.email })
                                 .populate('country')
+                                .populate('phone')
                                 .populate('selectedPayementMethod')
                                 .populate('cards')
-                                .populate('mobils')
+                                .populate('mobils');
         }
-
-        const phoneNumber = result.user.phoneNumber ? parsePhoneNumberFromString(result.user.phoneNumber) : false;
 
         if (!uidObj){
             uidObj = new Uid({ uid: uid });
             await uidObj.save();
         }
-
+        var imnewuser = 0;
         if (!the_user) {
-            the_user = new User({
-                uid: [uidObj],
-                email: result.user.email,
-                name: result.user.name,
-                photoURL: result.user.photoURL,
-                phone: result.user.phone ?? '',
-                disabled: result.user.disabled,
-                coins: 5000,
-            });
-            the_user = await User.findOne({ uids: uid }) 
-                .populate('country')
-                .populate('selectedPayementMethod')
-                .populate('cards')
-                .populate('mobils');
+            the_user = new User();
+            the_user.uids = [uidObj._id];
+            the_user.email = result.user.email;
+            if (result.user.displayName) { 
+                let name = result.user.displayName.split(' ');
+                the_user.name = name[0] ?? '';
+                the_user.surname = name.filter((k, v) => v != 0).toString() ?? '';
+            }
+            if (thetelephone){ the_user.phone = thetelephone._id; }
+            else if (phoneNumber && country){
+                var userPhone = new Mobil();
+                userPhone.digits =phoneNumber.nationalNumber;
+                userPhone.indicatif =country.dial_code;
+                userPhone.title =phoneNumber.nationalNumber;
+                await userPhone.save();
+                the_user.phone = userPhone._id;
+            }
+            the_user.country = country ? country._id : null;
+            the_user.role = 'user';
+            the_user.photoURL = result.user.photoURL;
+            the_user.disabled = result.user.disabled;
+            the_user.coins = 1000;
+            imnewuser = 1;
         }
         else{
-            the_user.uid.push(uidObj);
+            the_user.uids.push(uidObj._id);
         }
         await the_user.save();
-        the_user.new_user =  1;
 
-
-        if (phoneNumber) {
-            const country = await Country.findOne({ code: phoneNumber.country });
-            if (country) {
-                the_user.country = country._id;
-                the_user.phone = phoneNumber.nationalNumber;
-            }
-        }
+        the_user = await User.findOne({ uids: uidObj }) 
+            .populate('country')
+            .populate('uids')
+            .populate('phone')
+            .populate('selectedPayementMethod')
+            .populate('cards')
+            .populate('mobils');
+            the_user.new_user =  imnewuser;
     }
+
     return the_user;
 }
 async function generateUserResponse(user){
@@ -477,7 +604,7 @@ async function generateUserResponse(user){
         _id: user._id,
         email: user.email,
         country: user.country ? user.country : null,
-        phone: user.phone ?? '',
+        phone: user.phone ?? null,
         name: user.name ?? '',
         surname: user.surname ?? '',
         imgPath: user.photoURL ?? (user.name ? `https://ui-avatars.com/api/?name=${user.name}+${user.surname}&background=random` : 'https://ui-avatars.com/api/?size=500&background=random'),
@@ -487,8 +614,11 @@ async function generateUserResponse(user){
         selectedPayementMethod: user.selectedPayementMethod,
         cards: user.cards,
         mobils: user.mobils,
+        // new_user : 1,
+        new_user : user.new_user ?? 0,
+
     };
 }
 
 //exports
-module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins };
+module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins, editProfil };
