@@ -13,6 +13,5 @@ const userAuthentificateSchema = new mongoose.Schema({
   cards: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CardModel' }],
   mobils: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Mobil' }]
 }, { timestamps: true });
-// const UserAuthentificate = mongoose.model('UserAuthentificate', userAuthentificateSchema);
 
 module.exports = mongoose.model('UserAuthentificate', userAuthentificateSchema);

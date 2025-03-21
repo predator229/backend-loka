@@ -7,5 +7,4 @@ const cardSchema = new mongoose.Schema({
     cvv: { type: String, required: true }
   }, { timestamps: true });
   
-  module.exports = mongoose.model('Card', cardSchema);
-  
+module.exports = mongoose.model('Card', cardSchema);

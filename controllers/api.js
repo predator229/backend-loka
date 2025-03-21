@@ -1,4 +1,4 @@
-const getUserInfoByUUID = require('../tools/flutter_tools');
+const {getUserInfoByUUID, getTheCurrentUserOrFailed, generateUserResponse} = require('../tools/flutter_tools');
 const { parsePhoneNumberFromString } = require('libphonenumber-js');
 const User = require('../models/User');
 const Uid = require('../models/Uid');
@@ -6,6 +6,7 @@ const Country = require('../models/Country');
 const Mobil = require('../models/Mobil');
 const Card = require('../models/Card');
 const SelectedPayement = require('../models/SelectedPayement');
+const ApartmentCard = require('../models/ApartmentCard');
 // const stripe = require('stripe')('your-stripe-secret-key');
 // const axios = require('axios');
 
@@ -23,7 +24,6 @@ const authentificateUser = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 const addMobil = async (req, res) => {
     try {
         const { uid, mobil } = req.body;
@@ -56,7 +56,6 @@ const addMobil = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 const addCard = async (req, res) => {
     try {
         const { uid, card } = req.body;
@@ -91,7 +90,6 @@ const addCard = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 const removeMobil = async (req, res) => {
     try {
         const { uid, mobil } = req.body;
@@ -128,7 +126,6 @@ const removeMobil = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 const removeCard = async (req, res) => {
     try {
         const { uid, card } = req.body;
@@ -166,7 +163,6 @@ const removeCard = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 const refreshUser = async (req, res) => {
     const { authkey, uid } = req.body;
     
@@ -256,7 +252,6 @@ const refreshUser = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 const selectPaymentMethod = async (req, res) => {
     try {
         const { uid, selectedPayement } = req.body;
@@ -308,7 +303,6 @@ const selectPaymentMethod = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 //add coins function
 const addCoins = async (req, res) => {
     try {
@@ -405,7 +399,6 @@ const addCoins = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 //edit profil
 const editProfil = async (req, res) => {
     try {
@@ -485,140 +478,41 @@ const editProfil = async (req, res) => {
     }
 };
 
-//commons fucntions
-async function getTheCurrentUserOrFailed(req, res){
-    const { uid } = req.body;
-    var uidObj = await Uid.findOne({ uid: uid });
+const getPosts = async (req, res) => {
+    try {
+        const { refresh, lastpost } = req.body;
 
-    let the_user = uidObj != null  ? await User.findOne({ uids: uidObj._id }) 
-        .populate('country')
-        .populate('phone')
-        .populate('selectedPayementMethod')
-        .populate('cards')
-        .populate('mobils') : false;
+        var the_user = await getTheCurrentUserOrFailed(req, res);
 
-    if (!the_user) {
-        const result = await getUserInfoByUUID(uid);
-        if (result.status !== 200) {
+        if (!the_user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        var country = null;
-        var thetelephone = null;
-        const phoneNumber = result.user.phoneNumber ? parsePhoneNumberFromString(result.user.phoneNumber) : false;
-
-        if (phoneNumber){
-            country = await Country.findOne({ code: phoneNumber.country });
-            if (country){
-                const phones = await Mobil.find({ digits: phoneNumber.nationalNumber, indicatif: country.dial_code  });
-                if (phones) {
-                    for (const phone of phones) {
-                        const userWithPhone = await User.findOne({ phone: phone._id }).populate('country')
-                        .populate('phone')
-                        .populate('selectedPayementMethod')
-                        .populate('cards')
-                        .populate('mobils');
-                        if (userWithPhone) {
-                            the_user = userWithPhone;
-                            thetelephone = phone;
-                            break;
-                        }
-                    }    
-                }
-            }
-
-            // if (country) {
-            //     the_user.country = country._id;
-            //     the_user.phone = phoneNumber.nationalNumber;
-            // }
+        if (!thephone || !country || !name || !surname){
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'Certains parametres sont manquants !', user: userResponse, error: 1 });
         }
 
-        if (!the_user && result.user.email) {
-            the_user = await User.findOne({ email: result.user.email })
-                                .populate('country')
-                                .populate('phone')
-                                .populate('selectedPayementMethod')
-                                .populate('cards')
-                                .populate('mobils');
-        }
-
-        if (!uidObj){
-            uidObj = new Uid({ uid: uid });
-            await uidObj.save();
-        }
-        var imnewuser = 0;
-        if (!the_user) {
-            the_user = new User();
-            the_user.uids = [uidObj._id];
-            the_user.email = result.user.email;
-            if (result.user.displayName) { 
-                let name = result.user.displayName.split(' ');
-                the_user.name = name[0] ?? '';
-                the_user.surname = name.filter((k, v) => v != 0).toString() ?? '';
-            }
-            if (thetelephone){ the_user.phone = thetelephone._id; }
-            else if (phoneNumber && country){
-                var userPhone = new Mobil();
-                userPhone.digits =phoneNumber.nationalNumber;
-                userPhone.indicatif =country.dial_code;
-                userPhone.title =phoneNumber.nationalNumber;
-                await userPhone.save();
-                the_user.phone = userPhone._id;
-            }
-            the_user.country = country ? country._id : null;
-            the_user.role = 'user';
-            the_user.photoURL = result.user.photoURL;
-            the_user.disabled = result.user.disabled;
-            the_user.coins = 1000;
-            imnewuser = 1;
-        }
-        else{
-            the_user.uids.push(uidObj._id);
-        }
-        await the_user.save();
-
-        the_user = await User.findOne({ uids: uidObj }) 
+        the_user = await User.findOne({_id: the_user._id}) 
             .populate('country')
-            .populate('uids')
             .populate('phone')
             .populate('selectedPayementMethod')
             .populate('cards')
             .populate('mobils');
-            the_user.new_user =  imnewuser;
+                
+        const userResponse = await generateUserResponse(the_user);
+
+        const posts = await ApartmentCard.find({})
+            .limit(10)
+            .skip(lastpost || 0)
+            .sort({ createdAt: -1 })
+            .populate('caracteristiques')
+            .populate('typeApartment');
+
+        res.status(200).json({ user: userResponse, posts: posts, message: '', error: 0 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-
-    return the_user;
-}
-async function generateUserResponse(user){
-    if (user.selectedPayementMethod) {
-        const result = await SelectedPayement.findOne({ _id: user.selectedPayementMethod._id })
-            .populate('mobil')
-            .populate('card');
-
-        if (result.mobil == null) { delete result.mobil; }
-        if (result.card == null) { delete result.card; }
-
-        user.selectedPayementMethod = result;
-    }
-
-    return {
-        _id: user._id,
-        email: user.email,
-        country: user.country ? user.country : null,
-        phone: user.phone ?? null,
-        name: user.name ?? '',
-        surname: user.surname ?? '',
-        imgPath: user.photoURL ?? (user.name ? `https://ui-avatars.com/api/?name=${user.name}+${user.surname}&background=random` : 'https://ui-avatars.com/api/?size=500&background=random'),
-        typeUser: user.role,
-        role: user.role,
-        coins: user.coins ?? 0,
-        selectedPayementMethod: user.selectedPayementMethod,
-        cards: user.cards,
-        mobils: user.mobils,
-        // new_user : 1,
-        new_user : user.new_user ?? 0,
-
-    };
-}
+};
 
 //exports
-module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins, editProfil };
+module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins, editProfil, getPosts };
