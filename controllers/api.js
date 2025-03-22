@@ -7,6 +7,7 @@ const Mobil = require('../models/Mobil');
 const Card = require('../models/Card');
 const SelectedPayement = require('../models/SelectedPayement');
 const ApartmentCard = require('../models/ApartmentCard');
+const TypeApartment = require('../models/TypeApartment');
 // const stripe = require('stripe')('your-stripe-secret-key');
 // const axios = require('axios');
 
@@ -18,8 +19,9 @@ const authentificateUser = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
         const userResponse = await generateUserResponse(the_user);
+        const typeApartments = await TypeApartment.find();
 
-        res.status(200).json({ user: userResponse, message: the_user.new_user ? 'Bienvenu !' : 'Bon retour !' });
+        res.status(200).json({ typeApartments: typeApartments, user: userResponse, message: the_user.new_user ? 'Bienvenu !' : 'Bon retour !' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -263,7 +265,7 @@ const selectPaymentMethod = async (req, res) => {
 
         if (selectedPayement){
             const selectedPayement_ = new  SelectedPayement();
-            selectedPayement_.mobil = selectedPayement.mobil;
+            // selectedPayement_.mobil = selectedPayement.mobil;
 
             if (selectedPayement.mobil && selectedPayement.mobil.id){
                 var mobil = await Mobil.findOne({ _id: selectedPayement.mobil.id });
@@ -480,16 +482,12 @@ const editProfil = async (req, res) => {
 
 const getPosts = async (req, res) => {
     try {
-        const { refresh, lastpost } = req.body;
+        const { refresh, without } = req.body;
 
         var the_user = await getTheCurrentUserOrFailed(req, res);
-
+        var excludedIds = [];
         if (!the_user) {
             return res.status(404).json({ message: 'User not found' });
-        }
-        if (!thephone || !country || !name || !surname){
-            const userResponse = await generateUserResponse(the_user);
-            return res.status(200).json({ message: 'Certains parametres sont manquants !', user: userResponse, error: 1 });
         }
 
         the_user = await User.findOne({_id: the_user._id}) 
@@ -500,16 +498,16 @@ const getPosts = async (req, res) => {
             .populate('mobils');
                 
         const userResponse = await generateUserResponse(the_user);
-
-        const posts = await ApartmentCard.find({})
-            .limit(10)
-            .skip(lastpost || 0)
-            .sort({ createdAt: -1 })
+        if (without && Array.isArray(without)) { excludedIds = without.map(id => id.toString()); }
+        let posts = await ApartmentCard.find({ _id: { $nin: excludedIds }})
             .populate('caracteristiques')
-            .populate('typeApartment');
+            .populate('typeApartment')
+            .limit(10);
 
-        res.status(200).json({ user: userResponse, posts: posts, message: '', error: 0 });
-    } catch (error) {
+        const typesApartments = await TypeApartment.find({});
+        res.status(200).json({ typesApartments: typesApartments, user: userResponse, posts: posts, message: '', error: 0 });
+
+    } catch (error) { 
         res.status(500).json({ error: error.message });
     }
 };

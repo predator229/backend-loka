@@ -64,6 +64,17 @@ async function importData() {
         await TypeUser.insertMany(typesUser);
         console.log('👥 User types have been added to the database!');
 
+        const typesApartements = [
+            { icone: "view_comfortable_outlined", name: "Damien Tous les logements"},
+            { icone: "home_filled", name: "Chambre salon"},
+            { icone: "home_work", name: "Appartement meublé"},
+            { icone: "blinds_closed_outlined", name: "Imeubles a vendre"},
+            { icone: "local_offer_rounded", name: "Imeubles a vendre"},
+        ];
+
+        await TypeApartment.insertMany(typesApartements);
+        console.log('👥 Types apartemnts have been added to the database!');
+
     } catch (error) {
         console.error('❌ Error:', error);
         process.exit(1);
@@ -92,7 +103,15 @@ async function generateApartments() {
             devise: "FCFA",
             perPeriod: "month",
             isFavourite: faker.datatype.boolean(),
-            typeApartment: typeApartments.length ? [typeApartments[faker.number.int({ min: 0, max: typeApartments.length - 1 })]._id] : undefined,
+            typeApartment: typeApartments.length
+            ? [
+                typeApartments[0]._id, // Le premier élément
+                ...Array.from(
+                  { length: Math.min(faker.number.int({ min: 1, max: 3 }), typeApartments.length - 1) }, // 1 à 3 éléments aléatoires
+                  () => typeApartments[faker.number.int({ min: 1, max: typeApartments.length - 1 })]._id
+                ),
+              ]
+            : undefined,
             nrColoc: faker.number.int({ min: 1, max: 5 }),
             nbrNeightbord: faker.number.int({ min: 1, max: 10 }),
             caracteristiques: []
@@ -119,15 +138,15 @@ async function generateApartments() {
 mongoose.connect(process.env.MONGO_URI)
     .then(async () => {
         console.log('✅ MongoDB connecté avec succès');
-        await importData();
+        // await importData();
         await generateApartments();
 
         console.log('✅ Importation des données terminée.');
         app.use('/api', usersRoutes);
 
         app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
             console.log('📌 Modèles Mongoose chargés:', mongoose.modelNames());
+            console.log(`🚀 Server running on port ${PORT}`);
         });
     })
     .catch(err => {

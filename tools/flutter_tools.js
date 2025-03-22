@@ -1,5 +1,14 @@
 const admin = require('../config/firebase');
 
+const User = require('../models/User');
+const Uid = require('../models/Uid');
+const Country = require('../models/Country');
+const Mobil = require('../models/Mobil');
+const Card = require('../models/Card');
+const SelectedPayement = require('../models/SelectedPayement');
+const ApartmentCard = require('../models/ApartmentCard');
+const TypeApartment = require('../models/TypeApartment');
+
 const getUserInfoByUUID = async (uuid) => {
     try {
         const userRecord = await admin.auth().getUser(uuid);

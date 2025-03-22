@@ -17,7 +17,7 @@ router.post('/users/remove-card', verifyFirebaseToken, removeCard);
 router.post('/users/add-coins', verifyFirebaseToken, addCoins);
 
 //profil user info
-router.post('/edit-profil', verifyFirebaseToken, editProfil);
+router.post('/users/edit-profil', verifyFirebaseToken, editProfil);
 
 
 router.post('/apartments/get-apartments', verifyFirebaseToken, getPosts);
