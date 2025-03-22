@@ -138,7 +138,7 @@ async function generateApartments() {
 mongoose.connect(process.env.MONGO_URI)
     .then(async () => {
         console.log('✅ MongoDB connecté avec succès');
-        // await importData();
+        await importData();
         await generateApartments();
 
         console.log('✅ Importation des données terminée.');
