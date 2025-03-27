@@ -8,6 +8,8 @@ const Card = require('../models/Card');
 const SelectedPayement = require('../models/SelectedPayement');
 const ApartmentCard = require('../models/ApartmentCard');
 const TypeApartment = require('../models/TypeApartment');
+const Room = require('../models/Room');
+const ApartmentCaracteristique = require('../models/ApartmentCaracteristique');
 // const stripe = require('stripe')('your-stripe-secret-key');
 // const axios = require('axios');
 
@@ -500,9 +502,45 @@ const getPosts = async (req, res) => {
         const userResponse = await generateUserResponse(the_user);
         if (without && Array.isArray(without)) { excludedIds = without.map(id => id.toString()); }
         let posts = await ApartmentCard.find({ _id: { $nin: excludedIds }})
-            .populate('caracteristiques')
-            .populate('typeApartment')
-            .limit(10);
+                                    .populate({
+                                        path: 'caracteristiques',
+                                        populate: [
+                                            { 
+                                                path: 'rooms', 
+                                                populate: [
+                                                    {
+                                                        path: 'type',
+                                                        select: '-__v' ,
+                                                    }
+                                                ],
+                                                select: '-__v' 
+                                            },
+                                            { path: 'equipements', populate: [
+                                                {
+                                                    path: 'type',
+                                                    select: '-__v' ,
+                                                }
+                                            ],select: '-__v' },
+                                            { path: 'services', select: '-__v' }
+                                        ]
+                                    })
+                                    .populate({ path: 'typeApartment', select: '-__v' })  
+                                    .limit(10);
+    
+        // if (posts && posts.length > 0) {
+        //     for (let i = 0; i < posts.length; i++) {
+        //     const post = posts[i];
+        //     if (post.caracteristiques && post.caracteristiques._id) {
+        //         const carcts = await ApartmentCaracteristique.findById({ _id: post.caracteristiques._id })
+        //         .populate("rooms")
+        //         .populate("equipements")
+        //         .populate("services");
+        //         if (carcts) {
+        //         post.caracteristiques = carcts;
+        //         }
+        //     }
+        //     }
+        // }
 
         const typesApartments = await TypeApartment.find({});
         res.status(200).json({ typesApartments: typesApartments, user: userResponse, posts: posts, message: '', error: 0 });

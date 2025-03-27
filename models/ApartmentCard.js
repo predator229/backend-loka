@@ -17,7 +17,7 @@ const ApartmentCardSchema = new mongoose.Schema({
     typeApartment: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TypeApartment', required: true }],
     nrColoc: { type: Number, required: true },
     nbrNeightbord: { type: Number, required: true },
-    caracteristiques: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ApartmentCaracteristique', required: false }],
+    caracteristiques: { type: mongoose.Schema.Types.ObjectId, ref: 'ApartmentCaracteristique', required: false },
 }, { timestamps: true });
   
 module.exports = mongoose.model('ApartmentCard', ApartmentCardSchema);
