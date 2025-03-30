@@ -18,6 +18,7 @@ const ApartmentCardSchema = new mongoose.Schema({
     nrColoc: { type: Number, required: true },
     nbrNeightbord: { type: Number, required: true },
     caracteristiques: { type: mongoose.Schema.Types.ObjectId, ref: 'ApartmentCaracteristique', required: false },
+    maplocation: { type: String, required: true },
 }, { timestamps: true });
   
 module.exports = mongoose.model('ApartmentCard', ApartmentCardSchema);

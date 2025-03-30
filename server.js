@@ -15,6 +15,7 @@ require('./models/JournalCard');
 require('./models/ApartmentCard');
 require('./models/Room');
 require('./models/EquimentType');
+require("./models/CouvertureChambre");
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -35,6 +36,7 @@ const fs = require('fs').promises;
 
 const usersRoutes = require('./routes/api');
 const Room = require('./models/Room');
+const CouvertureChambre = require('./models/CouvertureChambre');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -91,7 +93,7 @@ async function importData() {
         console.log('👥 Rooms types have been added to the database!');
 
         const equipementsType = [
-            { icon: "tv", name: "TV", description : "TV 40" },
+            { icon: "tv", name: " TV", description : "TV 40" },
             { icon: "wallet_sharp", name: "Véranda", description : "Escalier sur deux etages" },
             { icon: "waterfall_chart_sharp", name: "Cuisine", description : "Véranda sur 40" },
             { icon: "panorama_wide_angle_select_sharp", name: "Plafond", description : "Plafond en bois massif" },
@@ -106,6 +108,15 @@ async function importData() {
 
         await EquimentType.insertMany(equipementsType);
         console.log('👥 EquipementType have been added to the database!');
+    
+        const couverturesChambre = [
+            { icon: "images/couverture_plafonnnee.png", name: "Plafonné", description : "Plafonné" },
+            { icon: "images/couverture_dallee.png", name: "Dallé", description : "Dallé" },
+            { icon: "images/couverture_staffee.png", name: "Staffée", description : "Staffée" },
+        ];
+
+        await CouvertureChambre.insertMany(couverturesChambre);
+        console.log('⼍ CouvertureChambre have been added to the database!');
     
     } catch (error) {
         console.error('❌ Error:', error);
@@ -189,6 +200,7 @@ async function generateApartments() {
             devise: "FCFA",
             perPeriod: "month",
             isFavourite: faker.datatype.boolean(),
+            maplocation: faker.location.latitude() + ',' + faker.location.longitude(),
             typeApartment: typeApartments.length
             ? [
                 typeApartments[0]._id, // Le premier élément

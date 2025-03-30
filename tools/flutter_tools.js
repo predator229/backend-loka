@@ -72,6 +72,16 @@ const getTheCurrentUserOrFailed = async (req, res) => {
                                 .populate('selectedPayementMethod')
                                 .populate('cards')
                                 .populate('mobils');
+
+            if (thetelephone){ the_user.phone = thetelephone._id; }
+            else if (phoneNumber && country){
+                var userPhone = new Mobil();
+                userPhone.digits =phoneNumber.nationalNumber;
+                userPhone.indicatif =country.dial_code;
+                userPhone.title =phoneNumber.nationalNumber;
+                await userPhone.save();
+                the_user.phone = userPhone._id;
+            }
         }
 
         if (!uidObj){
@@ -135,7 +145,7 @@ const generateUserResponse = async (user) => {
 
     return {
         _id: user._id,
-        email: user.email,
+        email: user.email ?? '',
         country: user.country ? user.country : null,
         phone: user.phone ?? null,
         name: user.name ?? '',

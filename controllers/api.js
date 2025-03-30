@@ -10,24 +10,45 @@ const ApartmentCard = require('../models/ApartmentCard');
 const TypeApartment = require('../models/TypeApartment');
 const Room = require('../models/Room');
 const ApartmentCaracteristique = require('../models/ApartmentCaracteristique');
+const EquimentType = require('../models/EquimentType');
+const RoomType = require('../models/RoomType');
+const TypeUser = require('../models/TypeUser');
+const CouvertureChambre = require("../models/CouvertureChambre");
+
 // const stripe = require('stripe')('your-stripe-secret-key');
 // const axios = require('axios');
 
 const authentificateUser = async (req, res) => {
     try {
-        const { uid } = req.body;
         var the_user = await getTheCurrentUserOrFailed(req, res);
         if (!the_user) {
             return res.status(404).json({ message: 'User not found' });
         }
         const userResponse = await generateUserResponse(the_user);
-        const typeApartments = await TypeApartment.find();
-
-        res.status(200).json({ typeApartments: typeApartments, user: userResponse, message: the_user.new_user ? 'Bienvenu !' : 'Bon retour !' });
+        res.status(200).json({user: userResponse, message: the_user.new_user ? 'Bienvenu !' : 'Bon retour !' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
+const getDefaultParams = async (req, res) => {
+    try {
+        var the_user = await getTheCurrentUserOrFailed(req, res);
+        if (!the_user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        const userResponse = await generateUserResponse(the_user);
+        const typesApartments = await TypeApartment.find();
+        const equipementsType = await EquimentType.find();
+        const roomsTypes = await RoomType.find();
+        const couverturesChambre = await CouvertureChambre.find();
+
+        res.status(200).json({ equipementsType:equipementsType, couverturesChambre: couverturesChambre, roomsTypes: roomsTypes, typesApartments: typesApartments, user: userResponse, message: the_user.new_user ? 'Bienvenu !' : 'Bon retour !' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 const addMobil = async (req, res) => {
     try {
         const { uid, mobil } = req.body;
@@ -192,12 +213,17 @@ const refreshUser = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        the_user = result.user.phoneNumber ? await User.findOne({ phone: result.user.phoneNumber }) 
-            .populate('country')
-            .populate('phone')
-            .populate('selectedPayementMethod')
-            .populate('cards')
-            .populate('mobils') : false;
+        the_user = result.user.phoneNumber ? await User.findOne({ 
+            $or: [
+            // { phone: result.user.phoneNumber.trim() },
+            { phone: result.user.phoneNumber.replace(/\s+/g, '').trim() }
+            ]
+        })
+        .populate('country')
+        .populate('phone')
+        .populate('selectedPayementMethod')
+        .populate('cards')
+        .populate('mobils') : false;
         
         if (!the_user && result.user.email) {
             the_user = await User.findOne({ email: result.user.email })
@@ -418,6 +444,16 @@ const editProfil = async (req, res) => {
             return res.status(200).json({ message: 'Certains parametres sont manquants !', user: userResponse, error: 1 });
         }
 
+        thephone.replace(/\s+/g, '').trim();
+
+        if (email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+            const userResponse = await generateUserResponse(the_user);
+            return res.status(200).json({ message: 'Email invalide !', user: userResponse, error: 1 });
+            }
+        }
+
         var existUserWithEmailOrPhone = the_user.email === email ? null : await User.findOne({ email: email });
         if (existUserWithEmailOrPhone == null) {
             if (the_user.phone){
@@ -437,7 +473,7 @@ const editProfil = async (req, res) => {
 
         if (existUserWithEmailOrPhone != null  && existUserWithEmailOrPhone._id != the_user._id) {
             const userResponse = await generateUserResponse(the_user);
-            return res.status(200).json({ message: `Un utilisateur avec ce numero de telephone ou email existe deja ! ${existUserWithEmailOrPhone._id}`, error: 1, user: userResponse });
+            return res.status(200).json({ message: `Un utilisateur avec ce numero de telephone ou l\'email existe deja ! ${existUserWithEmailOrPhone._id}`, error: 1, user: userResponse });
         }
 
         const countryObj = await Country.findOne({ dial_code: country });
@@ -464,6 +500,7 @@ const editProfil = async (req, res) => {
         the_user.name = name;
         the_user.surname = surname;
         the_user.phone = phone_._id;
+        if (!the_user.email){the_user.email = email; }
 
         await the_user.save();
 
@@ -551,4 +588,4 @@ const getPosts = async (req, res) => {
 };
 
 //exports
-module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins, editProfil, getPosts };
+module.exports = { authentificateUser, refreshUser, addMobil, addCard, selectPaymentMethod, removeMobil, removeCard, addCoins, editProfil, getPosts, getDefaultParams };
